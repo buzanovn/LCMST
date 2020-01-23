@@ -12,33 +12,25 @@
  * Implementation of Graph structure, G = (V, E)
  */
 class Graph {
-public:
-    /**
-     * Vector of vertices V of graph G
-     */
+private:
     Vertices vertices;
-    /**
-     * Vector of edges E of graph G
-     */
     Edges edges;
+    std::vector<std::vector<int>> adjacencyList;
 
-    /**
-     * Number of vertices
-     * @return |V|
-     */
+    bool hasCyclesDFS(int v, std::vector<bool> &discovered, int pV);
+
+public:
+    Vertices getVertices();
+
+    Edges getEdges();
+
     size_t getNumVertices();
 
-    /**
-     * Number of edges
-     * @return |E|
-     */
     size_t getNumEdges();
 
-    /**
-     * Number of leafs (vertices with deg(v) == 1)
-     * @return
-     */
-    int getNumLeafs();
+    int getNumLeaves();
+
+    int getNumVerticesWithDeg(int deg);
 
     int addEdge(int &lV, int &rV);
 
@@ -46,9 +38,17 @@ public:
 
     explicit Graph(const char *fPath);
 
+    explicit Graph(const Vertices& vertices);
+
     double vAngle(int lV, int rV);
 
     int vDistance(int lV, int rV);
+
+    int getWeight();
+
+    std::vector<int> getDegreeList();
+
+    bool hasCycles();
 };
 
 

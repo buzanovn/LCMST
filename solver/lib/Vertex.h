@@ -30,7 +30,7 @@ inline int vertexDistance(Vertex &v1, Vertex &v2) {
 inline double vertexAngle(Vertex &v1, Vertex &v2) {
     double a;
     a = atan2(v1.getY() - v2.getY(), v1.getX() - v2.getX());
-    return a < 0 ? a + 2 * M_PI : 0;
+    return a < 0 ? a + 2 * M_PI : a;
 }
 
 typedef std::vector<Vertex> Vertices;

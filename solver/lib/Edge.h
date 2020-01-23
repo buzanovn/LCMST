@@ -9,15 +9,15 @@ private:
     int rv;
     int weight;
 public:
-    int getLv() const {
+    [[nodiscard]] int getLv() const {
         return lv;
     }
 
-    int getRv() const {
+    [[nodiscard]] int getRv() const {
         return rv;
     }
 
-    int getWeight() const {
+    [[nodiscard]] int getWeight() const {
         return weight;
     }
 
@@ -25,6 +25,10 @@ public:
         this->lv = lv;
         this->rv = rv;
         this->weight = weight;
+    }
+
+    bool operator==(Edge& o) const {
+        return (this->lv == o.lv && this->rv == o.rv) || (this->rv == o.lv && this->lv == o.rv);
     }
 };
 

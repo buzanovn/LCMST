@@ -6,17 +6,16 @@
 class Solver {
 private:
     Graph *g;
-    int cost;
+    Graph *currentGraph;
+    Graph *bestGraph;
     int leafConstraint;
     Clusters clusters;
     int clusterCount;
     double angle;
-
-    Graph* g_solution;
 public:
     explicit Solver(Graph *graph);
 
-    void solve();
+    void solve(Graph *g);
 
     int removeLastVertexFromCluster(int vIdx, int clusterIdx);
 
@@ -29,6 +28,8 @@ public:
     void reportIterationScore();
 
     int iteration;
+
+    void setClusterCount(int cc);
 };
 
 

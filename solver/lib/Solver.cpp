@@ -1,47 +1,64 @@
 #include <algorithm>
 #include <iostream>
 #include "Solver.h"
+#include <cassert>
+
+#define MN 2
+#define LEAVES_NUMBER_CONSTRAINT(numVertex) (int) floor((numVertex) / 10.0)
+#define CLUSTER_COUNT(constraint) (int) (MN * pow(2, floor(log2((constraint) - MN) - 1)))
 
 Solver::Solver(Graph *graph) {
     this->g = graph;
-    this->cost = 0;
+    this->bestGraph = this->currentGraph = nullptr;
     this->iteration = 1;
-
-    this->leafConstraint = this->g->getNumVertices() / 10;
-
-    int l = 3;
-    while (l < this->leafConstraint) {
-        l <<= 1;
-    }
-    l >>= 1;
-    this->clusterCount = l;
-    this->angle = 2 * M_PI / l;
-    this->clusters.resize(l);
+    this->leafConstraint = LEAVES_NUMBER_CONSTRAINT(this->g->getNumVertices());
+    this->setClusterCount(CLUSTER_COUNT(this->leafConstraint));
 }
 
-void Solver::solve() {
+void Solver::setClusterCount(int cc) {
+    this->clusterCount = cc;
+    this->angle = 2 * M_PI / this->clusterCount;
+    this->clusters.resize(this->clusterCount);
+}
+
+void Solver::solve(Graph *graph) {
+    this->currentGraph = new Graph(graph->getVertices());
     this->divide(0);
+    this->bestGraph = this->currentGraph;
     this->reportIterationScore();
     this->iteration += 1;
-    int minClusterIdx = 0;
-    int minimalCost = cost;
-    for (size_t i = 1; i < g->getNumVertices(); ++i) {
+    int minWeight, curWeight;
+    minWeight = currentGraph->getWeight();
+    for (size_t i = 1; i < currentGraph->getNumVertices(); i++) {
+        this->currentGraph = new Graph(graph->getVertices());
         divide(i);
+        curWeight = currentGraph->getWeight();
         this->reportIterationScore();
         this->iteration += 1;
-        if (cost < minimalCost) {
-            minimalCost = cost;
-            minClusterIdx = i;
+        if (curWeight < minWeight) {
+            bestGraph = currentGraph;
         }
     }
-    divide(minClusterIdx);
-    this->g_solution = this->g;
+
+    // Make sure it is a tree
+    assert(!this->bestGraph->hasCycles());
+
+    // Make sure the tree is binary
+    for (int d : this->bestGraph->getDegreeList()) {
+        assert(d <= 3);
+    }
+
+    // Make sure all edges are unique
+    for (size_t i = 0; i < this->bestGraph->getNumEdges(); i++) {
+        for (size_t j = i + 1; j < this->bestGraph->getNumEdges(); j++) {
+            assert(!(this->bestGraph->getEdges()[i] == this->bestGraph->getEdges()[j]));
+        }
+    }
 }
 
 int Solver::removeLastVertexFromCluster(int vIdx, int clusterIdx) {
     int lastVertexIdx = this->clusters[clusterIdx].back().vIdx;
-    int weight = this->g->addEdge(vIdx, lastVertexIdx);
-    this->cost += weight;
+    this->currentGraph->addEdge(vIdx, lastVertexIdx);
     this->clusters[clusterIdx].pop_back();
     return lastVertexIdx;
 }
@@ -60,9 +77,9 @@ void Solver::conquer(int startVertexIdx, int lClusterIdx, int rClusterIdx) {
             if (this->clusters[i].empty()) {
                 continue;
             }
-            int fromStartToClusterCentre = this->g->vDistance(startVertexIdx, this->clusters[i].back().vIdx);
-            int fromStartToMinClusterCentre = this->g->vDistance(startVertexIdx,
-                                                                 this->clusters[minClusterIdx].back().vIdx);
+            int fromStartToClusterCentre = this->currentGraph->vDistance(startVertexIdx, this->clusters[i].back().vIdx);
+            int fromStartToMinClusterCentre = this->currentGraph->vDistance(startVertexIdx,
+                                                                            this->clusters[minClusterIdx].back().vIdx);
             if (fromStartToClusterCentre < fromStartToMinClusterCentre) {
                 minClusterIdx = i;
             }
@@ -80,21 +97,18 @@ void Solver::conquer(int startVertexIdx, int lClusterIdx, int rClusterIdx) {
 
 
 void Solver::divide(int centerVertexIdx) {
-    this->cost = 0;
-    this->g->edges.clear();
-    clearClusters(this->clusters);
-    for (size_t i = 0; i < this->g->getNumVertices(); i++) {
+    clearClusters(clusters);
+    for (size_t i = 0; i < this->currentGraph->getNumVertices(); i++) {
         if ((int) i == centerVertexIdx) {
             continue;
         }
-        int clusterIdx = this->g->vAngle(i, centerVertexIdx) / this->angle;
-        auto cV = ClusterVertex(this->g->vDistance(i, centerVertexIdx), i);
-        this->clusters[clusterIdx].push_back(cV);
+        int clusterIdx = (int) (this->currentGraph->vAngle(i, centerVertexIdx) / this->angle);
+        this->clusters[clusterIdx].push_back(ClusterVertex(this->currentGraph->vDistance(i, centerVertexIdx), i));
     }
     for (auto &c : this->clusters) {
         std::sort(c.rbegin(), c.rend());
     }
-    int step = this->clusterCount / 3;
+    int step = this->clusterCount / MN;
     for (int i = 0; i < this->clusterCount; i += step) {
         this->conquer(centerVertexIdx, i, i + step - 1);
     }
@@ -102,15 +116,15 @@ void Solver::divide(int centerVertexIdx) {
 
 void Solver::report(const char *fPath) {
     std::ofstream outputFile(fPath);
-    outputFile << "c Вес дерева = " << this->cost
-               << ", число листьев = " << this->g_solution->getNumLeafs()
+    outputFile << "c Вес дерева = " << this->bestGraph->getWeight()
+               << ", число листьев = " << this->bestGraph->getNumLeaves()
                << ',' << std::endl;
     outputFile << "c число вершин и ребер" << std::endl;
-    outputFile << "p edge " << this->g_solution->getNumVertices()
-               << ' ' << this->g_solution->getNumEdges()
+    outputFile << "p edge " << this->bestGraph->getNumVertices()
+               << ' ' << this->bestGraph->getNumEdges()
                << std::endl;
     outputFile << "c ребра" << std::endl;
-    for (auto &e : this->g_solution->edges) {
+    for (auto &e : this->bestGraph->getEdges()) {
         outputFile << "e " << e.getLv() + 1
                    << ' ' << e.getRv() + 1
                    << std::endl;
@@ -120,6 +134,6 @@ void Solver::report(const char *fPath) {
 
 void Solver::reportIterationScore() {
     std::cout << "Iteration: " << this->iteration
-              << " Score: " << this->cost
+              << " Score: " << this->currentGraph->getWeight()
               << std::endl;
 }
